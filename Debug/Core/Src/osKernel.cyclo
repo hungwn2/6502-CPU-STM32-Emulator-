@@ -1,0 +1,14 @@
+../Drivers/CMSIS/Include/core_cm4.h:1684:22:__NVIC_EnableIRQ	2
+../Drivers/CMSIS/Include/core_cm4.h:1814:22:__NVIC_SetPriority	2
+../Core/Src/osKernel.c:45:6:osKernelStackInit	1
+../Core/Src/osKernel.c:71:9:osKernelAddThreads	1
+../Core/Src/osKernel.c:93:6:osKernelInit	1
+../Core/Src/osKernel.c:97:6:osKernelLaunch	1
+../Core/Src/osKernel.c:110:29:SysTick_Handler	1
+../Core/Src/osKernel.c:133:6:osSchedulerLaunch	1
+../Core/Src/osKernel.c:148:6:osThreadYield	1
+../Core/Src/osKernel.c:153:6:osSchedulerRoundRobin	2
+../Core/Src/osKernel.c:161:6:tim2_1hz_interrupt_init	1
+../Core/Src/osKernel.c:171:6:osSemaphoreInit	1
+../Core/Src/osKernel.c:175:6:osSemaphoreSet	1
+../Core/Src/osKernel.c:181:6:osSemaphoreWait	2
