@@ -140,7 +140,7 @@ __attribute__((naked)) void SysTick_Handler(void){
 	__asm("POP {R0, LR}");
 
 	__asm("LDR R1, [R0]"); //r1=currenpt address
-	__asm("LDR SP, [R1]"); //sp = to currentPt->SP
+	__asm("LDR SP, [R1]"); //sp = to currentPt->SP (context switch)
 	__asm("POP {R4-R11}"); // restore R4-R11
 	__asm("CPSIE	I");
 	__asm("BX LR");
@@ -166,17 +166,19 @@ void osSchedulerLaunch(void){
 
 
 void osSchedulerRoundRobin(void){
-	if ((++period_tick)==PERIOD){
-		(*task3)();
-	}
 	currentPt=currentPt->nextPt;
+}
+
+void osThreadYield(){
+	SysTick->VAL=0;
+	INTCTRL=PENDSTET;
 }
 
 
 void tim2_1hz_interrupt_init(void){
-	RCC->APB1ENR|=TIM2EN;
-	TIM2->PSC= 1600-1;
-	TIM2->ARR=10000;
+	RCC->APB1ENR|=TIM2EN; //Enable TIM2 for APB1
+	TIM2->PSC= 1600-1; // Set prescaler to 1.6*10^6/10^3
+	TIM2->ARR=10000; //10 ms
 	TIM2->CNT=0;
 	TIM2->CR1= CR1_CEN;
 	TIM2->DIER|=DIER_UIE;
@@ -189,7 +191,7 @@ void osSemaphoreInit(int32_t *semaphore, int32_t value){
 
 void osSemaphoreSet(int32_t *semaphore){
 	__disable_irq();
-	tcbType *t = sem_dequeue(sem);
+	tcbType *t = sem_dequeue(semaphore);
 	if (t) {
 	    t->state = THREAD_READY;
 	  }
@@ -209,3 +211,5 @@ void osSemaphoreWait(int32_t *semaphore){
 	*semaphore-=1;
 	__enable_irq();
 }
+
+
