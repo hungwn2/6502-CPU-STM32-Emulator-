@@ -34,20 +34,31 @@ static osSemaphore_t sem_step;
 
 
 
-void taskCPU(void){
-	cpu_reset(&cpu);
-	bus_reset();
-	term_init();
-	term_update_dashboard();
-	while(1){
-		osSemaphoreWait(&sem_step);
-		cpu_step(&g_cpu);
-		term_update_dashboard();
-	}
+typedef struct task6502 {
+  cpu_t cpu;
+  uint8_t stack_page[256]; // snapshot of $0100-$01FF (shared RAM case)
+
+  task_state_t state;
+
+  // wait-queue linkage
+  struct task6502 *wait_next;
+
+  // scheduler linkage (ready ring)
+  struct task6502 *next;
+} task6502_t;
+
+
+static void save_stack(task6502_t *t){
+  for (int i=0;i<256;i++) t->stack_page[i] = bus_read(0x0100+i);
 }
-void taskStepper(void){
-	while(1){}
+
+static void load_stack(task6502_t *t){
+  for (int i=0;i<256;i++) bus_write(0x0100+i, t->stack_page[i]);
 }
+
+
+
+
 void taskIdle(void){
 	while(1){
 

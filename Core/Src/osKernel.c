@@ -108,6 +108,45 @@ uint8_t osKernelAddThreads(void(*task0)(void), void(*task1)(void), void(*task2)(
 	return 1;
 }
 
+
+uint8_t osKernelAddThreads(void(*task0)(void), void(*task1)(void), void(*task2)(void))
+{
+  __disable_irq();
+
+  // circular list
+  tcbs[0].nextPt = &tcbs[1];
+  tcbs[1].nextPt = &tcbs[2];
+  tcbs[2].nextPt = &tcbs[0];
+
+  // store "run functions"
+  tcbs[0].taskFn = task0;  // cpu task 0 runner
+  tcbs[1].taskFn = task1;  // cpu task 1 runner
+  tcbs[2].taskFn = task2;  // idle runner
+
+  // init 6502 contexts for the two cpu tasks
+  osKernelTaskInit6502(0, 0xF000);   // task0 entry in shared ROM
+  osKernelTaskInit6502(1, 0xF100);   // task1 entry in shared ROM
+
+  // idle "thread" doesn’t need a 6502 context
+  tcbs[2].state = THREAD_READY;
+  tcbs[2].wait_next = 0;
+
+  currentPt = &tcbs[0];
+
+  __enable_irq();
+  return 1;
+}
+
+
+static inline void save_stack_page(tcb_t *t){
+  for (int i = 0; i < 256; i++) t->stack_page[i] = bus_read(0x0100 + i);
+}
+
+static inline void load_stack_page(tcb_t *t){
+  for (int i = 0; i < 256; i++) bus_write(0x0100 + i, t->stack_page[i]);
+}
+
+
 void osKernelInit(void){
 	MILIS_PRESCALER=(BUS_FREQ/1000);
 }
@@ -157,7 +196,7 @@ void osSchedulerLaunch(void){
 	__asm("POP {R0-R3}");
 	__asm("ADD SP, SP, #4"); //SKIP LR
 	__asm("POP {LR}"); //Create new start location by popping LR
-	__asm("ADD SP, SP, #4"); //SKIP LR
+	__asm("ADD SP, SP, #4"); //SKIP xpsr
 
 	__asm("CPSIE	I");
 	__asm("BX 	LR"); //Return from exception
