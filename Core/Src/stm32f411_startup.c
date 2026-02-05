@@ -57,5 +57,7 @@ for(uint32_t i = 0; i < bss_mem_size; i++)
 *p_dest_mem++ = 0;
 }
 // Call the application's main function.
+
+//k6502_vectors[1]();
 main();
 }

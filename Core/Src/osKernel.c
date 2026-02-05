@@ -34,7 +34,10 @@ uint32_t MILIS_PRESCALER;
 
 struct tcb{
 	int32_t *stackPt;
+	cput_t* cpu;
+	int32_t ram[256];
 	struct tcb *nextPt;
+	struct tcb *sem_next;
 	thread_state_t state;
 };
 
@@ -44,14 +47,10 @@ typedef enum {
 } thread_state_t;
 
 
-typedef struct {
-  int32_t count;
-  tcbType *wait_list_head;
-  tcbType *wait_list_tail;
-} osSemaphore_t;
-
-
-
+typedef struct{
+	int count;
+	tcb_t *wait_head;
+}sem_t;
 
 typedef struct tcb tcbType;
 tcbType tcbs[NUM_OF_THREADS];
@@ -119,17 +118,20 @@ uint8_t osKernelAddThreads(void(*task0)(void), void(*task1)(void), void(*task2)(
   tcbs[2].nextPt = &tcbs[0];
 
   // store "run functions"
-  tcbs[0].taskFn = task0;  // cpu task 0 runner
-  tcbs[1].taskFn = task1;  // cpu task 1 runner
-  tcbs[2].taskFn = task2;  // idle runner
+  tcbs[0].taskFn = cpu_task1;  // cpu task 0 runner
+  tcbs[1].taskFn = cpu_task2;  // cpu task 1 runner
+  tcbs[2].taskFn = idle_task;  // idle runner
+
+
+  for (int i = 0; i < 3; i++) {
+    tcbs[i].state = THREAD_READY;
+    tcbs[i].wait_next = NULL;
+  }
 
   // init 6502 contexts for the two cpu tasks
   osKernelTaskInit6502(0, 0xF000);   // task0 entry in shared ROM
   osKernelTaskInit6502(1, 0xF100);   // task1 entry in shared ROM
-
-  // idle "thread" doesn’t need a 6502 context
-  tcbs[2].state = THREAD_READY;
-  tcbs[2].wait_next = 0;
+;
 
   currentPt = &tcbs[0];
 
@@ -205,7 +207,13 @@ void osSchedulerLaunch(void){
 
 
 void osSchedulerRoundRobin(void){
-	currentPt=currentPt->nextPt;
+
+	tcb_t* start = currentPt;
+	while(current->next != start){
+		current = current->next;
+		if (current->state == READY) return;
+	}
+	currentPt=idleTcb;
 }
 
 void osThreadYield(){
@@ -228,21 +236,26 @@ void osSemaphoreInit(int32_t *semaphore, int32_t value){
 	*semaphore=value;
 }
 
-void osSemaphoreSet(int32_t *semaphore){
+void osSemaphoreSet(sem_t *semaphore){
 	__disable_irq();
-	tcbType *t = sem_dequeue(semaphore);
-	if (t) {
-	    t->state = THREAD_READY;
-	  }
-	else {
-	    sem->count++; //Increment
-	  }
-
-	__enable_irq();
+	if (semaphore->waitq){
+		tcbt_t* t = semaphore->waitq;
+		semaphore->waitq = t->sem_next;
+		t->sem_next=NULL;
+	    t->state = READY;
+	}
+	else{
+	    s->count++;
+	}
 }
 
-void osSemaphoreWait(int32_t *semaphore){
+void osSemaphoreWait(sem_t *semaphore){
 	__disable_irq();
+	if (semaphore>0){
+		count -=1;
+		__enable_irq();
+		return;
+	}
 	while(*semaphore<=0){
 		__disable_irq();
 		__enable_irq();

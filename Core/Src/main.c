@@ -23,31 +23,13 @@
 
 
 typedef uint32_t TaskProfiler;
-TaskProfiler Task0_Profiler,Task1_Profiler,Task2_Profiler, pTask1_Profiler, pTask2_Profiler;
 #define QUANTA 1
 
 
 
-static cpu_t &g_cpu;
 uint32_t TIM2_Ticks;
-static osSemaphore_t sem_step;
 
-
-
-typedef struct task6502 {
-  cpu_t cpu;
-  uint8_t stack_page[256]; // snapshot of $0100-$01FF (shared RAM case)
-
-  task_state_t state;
-
-  // wait-queue linkage
-  struct task6502 *wait_next;
-
-  // scheduler linkage (ready ring)
-  struct task6502 *next;
-} task6502_t;
-
-
+#define SLICE_INSTRUCTIONS  100
 static void save_stack(task6502_t *t){
   for (int i=0;i<256;i++) t->stack_page[i] = bus_read(0x0100+i);
 }
@@ -61,10 +43,26 @@ static void load_stack(task6502_t *t){
 
 void taskIdle(void){
 	while(1){
+		osThreadYield();
+	}
+}
+
+
+void task6502_1(void) {
+	for (i = 0; i < SLICE_INSTRUCTIONS; i++) {
+	    cpu_step(cpu);
+	    if (tcbs[0].state == THREAD_BLOCKED) break;
 
 	}
 }
 
+void task6502_2(void) {
+	for (i = 0; i < SLICE_INSTRUCTIONS; i++) {
+	    cpu_step(cpu);
+	    if (tcbs[0].state == THREAD_BLOCKED) break;
+
+	}
+}
 
 int main(void){
 	//initialize kernel, and add threads
