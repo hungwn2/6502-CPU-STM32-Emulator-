@@ -35,6 +35,7 @@ uint32_t MILIS_PRESCALER;
 struct tcb{
 	int32_t *stackPt;
 	cput_t* cpu;
+	void *task(void);
 	int32_t ram[256];
 	struct tcb *nextPt;
 	struct tcb *sem_next;
@@ -209,10 +210,10 @@ void osSchedulerLaunch(void){
 void osSchedulerRoundRobin(void){
 
 	tcb_t* start = currentPt;
-	while(current->next != start){
-		current = current->next;
-		if (current->state == READY) return;
-	}
+	do{
+		currentPt=curentPt->nextPt;
+		if (currentPt->state == THREAD_READY) return;
+	}while(currentPt!=start);
 	currentPt=idleTcb;
 }
 
@@ -238,30 +239,37 @@ void osSemaphoreInit(int32_t *semaphore, int32_t value){
 
 void osSemaphoreSet(sem_t *semaphore){
 	__disable_irq();
-	if (semaphore->waitq){
+	if (semaphore->wait_head){
+
+		// If semaphore has tasks in wait queue, dequeue one of theme and set the thread state to ready
 		tcbt_t* t = semaphore->waitq;
 		semaphore->waitq = t->sem_next;
 		t->sem_next=NULL;
 	    t->state = READY;
 	}
 	else{
+		// otherwise allocate a resource;
 	    s->count++;
 	}
 }
 
 void osSemaphoreWait(sem_t *semaphore){
 	__disable_irq();
-	if (semaphore>0){
-		count -=1;
-		__enable_irq();
+	if (semaphore->count>0){
+		// If available, execute task
+		semaphore->count--;
+		enable_irq();
 		return;
 	}
-	while(*semaphore<=0){
-		__disable_irq();
-		__enable_irq();
+	else{
+		// Otherwise thread is blocked and put on wait queue
+		currentPt->state=THREAD_BLOCKED;
+		currentPt->wait_next=semaphore;
+		semaphore->wait_head=currentPt;
+		enable_irq();
+		osThreadYield();
+
 	}
-	*semaphore-=1;
-	__enable_irq();
 }
 
 

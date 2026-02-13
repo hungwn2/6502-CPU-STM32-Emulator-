@@ -34,7 +34,16 @@ void cpu_reset(cpu_t *cpu){
 	cpu->sp=0xFD;
 	cpu->pc = (uint16_t)lo | ((uint16_t)hi << 8);
 	cpu->p|=U_FLAG|I_FLAG;
+}
 
+void cpu_nmi(cpu_t *cpu){
+	push_stack(cpu, (cpu->pc>>8)&0xFF);
+	push_stack(cpu, cpu->pc & 0xFF);
+
+	push_stack(cpu, (cpu->p & ~B_FLAG)|U_FLAG);
+	cpu->p |= I_FLAG;
+	cpu->pc=read16(0xFFFA);
+	cpu->cycles+=7;
 }
 
 
@@ -72,6 +81,18 @@ static inline uint16_t read16(uint16_t addr) {
 }
 
 
+
+void os_sycalls(cpu_t *cpu){
+	switch(cpu->a){
+	case UART_UNLOCK: osSemaphoreSet(&uart_lock); break;
+	case UART_LOCK: osSemaphoreWait(&uart_lock); break;
+	case UART_WRITE: uart_write(cpu->x); break;
+	case SYS_GPIO_TOGGLE: gpio_toggle_led(); break;
+	case SYS_YIELD: osThreadYield(); break;
+	default:
+	        break;
+	}
+}
 void cpu_step(cpu_t *cpu)
 {
 	uint8_t opcode=bus_read(cpu->pc);
@@ -171,17 +192,23 @@ void cpu_step(cpu_t *cpu)
 			break;
 		}
 
-		case 0x00:
+		case 0x00: //BRK
 			uint16_t ret_addr = (uint16_t)(cpu->pc+1);
-			push_stack(cpu, ret_addr>>8);
-			push_stack(cpu, ret_addr & 0xff);
-		    push_stack(cpu, (uint8_t)(cpu->p | B_FLAG | U_FLAG));
+		    os_syscall(cpu);
+
 
 			cpu->p |=I_FLAG;
 			cpu->pc = read16(0xFFCD);
 			cpu->cycles+=7;
 			break;
 
+		case 0x40:
+			cpu->p=pull_stack(cpu);
+			uint8_t lo=pull_stack(cpu);
+			uint8_t hi = pull_stack(cpu);
+			cpu->pc= ((high<<8)|lo);
+			cpu->cycles+=6;
+			break;
 	    default:
 	    {
 	    	cpu->cycles+=2;

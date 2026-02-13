@@ -30,15 +30,6 @@ typedef uint32_t TaskProfiler;
 uint32_t TIM2_Ticks;
 
 #define SLICE_INSTRUCTIONS  100
-static void save_stack(task6502_t *t){
-  for (int i=0;i<256;i++) t->stack_page[i] = bus_read(0x0100+i);
-}
-
-static void load_stack(task6502_t *t){
-  for (int i=0;i<256;i++) bus_write(0x0100+i, t->stack_page[i]);
-}
-
-
 
 
 void taskIdle(void){
@@ -47,8 +38,9 @@ void taskIdle(void){
 	}
 }
 
-
+å
 void task6502_1(void) {
+	cpu_t *cpu = &tcbs[0].cpu;
 	for (i = 0; i < SLICE_INSTRUCTIONS; i++) {
 	    cpu_step(cpu);
 	    if (tcbs[0].state == THREAD_BLOCKED) break;
@@ -57,6 +49,7 @@ void task6502_1(void) {
 }
 
 void task6502_2(void) {
+	cput_t *cpu = &tcbs[1].cpu;
 	for (i = 0; i < SLICE_INSTRUCTIONS; i++) {
 	    cpu_step(cpu);
 	    if (tcbs[0].state == THREAD_BLOCKED) break;
@@ -66,7 +59,6 @@ void task6502_2(void) {
 
 int main(void){
 	//initialize kernel, and add threads
-
 	uart_tx_init();
 	tim2_1hz_interrupt_init();
 	osSemaphoreInit(&semaphore1, 1);
