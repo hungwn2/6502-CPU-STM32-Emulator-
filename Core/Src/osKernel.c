@@ -66,7 +66,7 @@ void osKernelStackInit(int i){
 
 
 	//Debugging Stack Content
-	TCB_STACK[i][STACK_SIZE-3]= 0xFFFFFFFD; //R14 LR
+	TCB_STACK[i][STACK_SIZE-3]= 0xFFFFFFFD; //LR
 	TCB_STACK[i][STACK_SIZE-4]= 0xAAAAAAAA; //R12
 	TCB_STACK[i][STACK_SIZE-5]= 0xAAAAAAAA; //R3
 	TCB_STACK[i][STACK_SIZE-6]= 0xAAAAAAAA; //R2
@@ -179,8 +179,8 @@ void osSchedulerLaunch(void){
 	__asm("LDR R2, [r0]"); // R2= Current PT
 	__asm("LDR SP, [R2]"); //Load cortex-m SP from adress of R2 (SP=currentPt->SP)
 	__asm("POP {R4-R11}");
-	__asm("POP {R12}");
 	__asm("POP {R0-R3}");
+	__asm("POP {R12}");
 	__asm("ADD SP, SP, #4"); //SKIP LR
 	__asm("POP {LR}"); //Create new start location by popping LR
 	__asm("ADD SP, SP, #4"); //SKIP xpsr
