@@ -16,7 +16,7 @@ typedef enum{
     N_FLAG = (1<<7)
 }cpu_flags_t;
 
-typedef{
+typedef struct{
     uint8_t a;
     uint8_t x;
     uint8_t y;
@@ -24,10 +24,11 @@ typedef{
     uint16_t pc;
     uint8_t p;
     uint64_t cycles;
-};
-void cpu_reset(cput_t *cpu);
+}cpu_t;
 
-void cpu_step(cpu_t *cpu,)
+void cpu_reset(cpu_t *cpu);
+
+void cpu_step(cpu_t *cpu);
 
 
 void cpu_nmi(cpu_t *cpu);

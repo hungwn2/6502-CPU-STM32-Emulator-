@@ -7,7 +7,7 @@
 
 
 #include "osKernel.h"
-#include "cpu.h
+#include "cpu.h"
 #define NUM_OF_THREADS 3
 #define STACK_SIZE 400
 #define BUS_FREQ 16000000
@@ -28,9 +28,26 @@ uint32_t period_tick;
 
 void osSchedulerLaunch(void);
 void osSchedulerRoundRobin(void);
+void taskIdle();
+void task6502_1();
+void task6502_2();
 
 uint32_t MILIS_PRESCALER;
 
+uint32_t g_ram[256];
+cput_t g_cpu;
+
+static inline void save_thread_stackpage(tcb_t *t) {
+  memcpy(t->stack_page, &g_ram[0x0100], 256);
+}
+
+static inline void save_main_stackpage(tcb_t *t){
+	 memcpy(&g_ram[0x0100], t->stack_page, 256);
+}
+
+static inline void save_cpu_from_tcb(cpu_t *cpu, tcbt_t *t){
+	*cpu=t->cpu;
+}
 
 struct tcb{
 	int32_t *stackPt;
@@ -52,6 +69,9 @@ typedef struct{
 	int count;
 	tcb_t *wait_head;
 }sem_t;
+
+static sem_t gpio_lock, uart_lock;
+
 
 typedef struct tcb tcbType;
 tcbType tcbs[NUM_OF_THREADS];
@@ -86,6 +106,20 @@ void osKernelStackInit(int i){
 
 }
 
+void osKernelTaskInit6502(int32_t id, uint32_t entry_pc){
+	tcb_t *t = &tcbs[tid];
+
+	  memset(&t->cpu, 0, sizeof(t->cpu));
+	  memset(t->stack_page, 0, 256);
+
+	  t->cpu.pc = entry_pc;
+	  t->cpu.sp = 0xFD;
+	  t->cpu.p  = I_FLAG | U_FLAG;
+
+	  t->state = THREAD_READY;
+	  t->wait_next = NULL;
+}
+
 uint8_t osKernelAddThreads(void(*task0)(void), void(*task1)(void), void(*task2)(void)){
 	__disable_irq();
 
@@ -95,14 +129,20 @@ uint8_t osKernelAddThreads(void(*task0)(void), void(*task1)(void), void(*task2)(
 
 	//initialize stacks and Program counters
 	osKernelStackInit(0);
-	TCB_STACK[0][STACK_SIZE-2]=(uint32_t)(task0);
+	TCB_STACK[0][STACK_SIZE-2]=(uint32_t)(task6502_1);
 
 	osKernelStackInit(1);
-	TCB_STACK[1][STACK_SIZE-2]=(uint32_t)(task1);
+	TCB_STACK[1][STACK_SIZE-2]=(uint32_t)(task6502_2);
 
 	osKernelStackInit(2);
-	TCB_STACK[2][STACK_SIZE-2]=(uint32_t)(task2);
-
+	TCB_STACK[2][STACK_SIZE-2]=(uint32_t)(idle_task);
+	uint16_t lo=bus_read(0xFFFC);
+	uint16_t high=bus_read(0xFFFD);
+	uint16_t reset_pc=(high<<8)|lo;
+	osKernelTaskInit6502(0, reset_pc);
+	osKernelTaskInit6502(1, reset_pc);
+	sem_init(&uart_lock);
+	sem_init(&gpio_lock);
 	currentPt=&tcbs[0];
 	__enable_irq();
 	return 1;
@@ -178,7 +218,7 @@ __attribute__((naked)) void SysTick_Handler(void){
 	__asm("STR SP, [R1]"); //Store SP into TCB at address=R1 (tcb)
 
 	__asm("PUSH {R0, LR}");
-	__asm("BL osSchedulerRoundRobin");
+	__asm("BL os6502ContextSwitch");
 	__asm("POP {R0, LR}");
 
 	__asm("LDR R1, [R0]"); //r1=currenpt address
@@ -205,6 +245,13 @@ void osSchedulerLaunch(void){
 	__asm("BX 	LR"); //Return from exception
 }
 
+void os6502ContextSwitch(void){
+	currentPt->cpu=g_cpi;
+	save_thread_stackpage();
+	osSchedulerRoundRobin();
+	restore_6502_stackpage(currentPt);
+	g_cpu = currentPt->cpu;
+}
 
 
 void osSchedulerRoundRobin(void){
@@ -212,7 +259,9 @@ void osSchedulerRoundRobin(void){
 	tcb_t* start = currentPt;
 	do{
 		currentPt=curentPt->nextPt;
-		if (currentPt->state == THREAD_READY) return;
+		if (currentPt->state == THREAD_READY){
+			return;
+		}
 	}while(currentPt!=start);
 	currentPt=idleTcb;
 }
@@ -234,7 +283,8 @@ void tim2_1hz_interrupt_init(void){
 }
 
 void osSemaphoreInit(int32_t *semaphore, int32_t value){
-	*semaphore=value;
+	semaphore->count=value;
+	semaphore->wait_head=nullptr;
 }
 
 void osSemaphoreSet(sem_t *semaphore){
@@ -242,15 +292,16 @@ void osSemaphoreSet(sem_t *semaphore){
 	if (semaphore->wait_head){
 
 		// If semaphore has tasks in wait queue, dequeue one of theme and set the thread state to ready
-		tcbt_t* t = semaphore->waitq;
-		semaphore->waitq = t->sem_next;
+		tcbt_t* t = semaphore->wait_head;
+		semaphore->wait_head = t->sem_next;
 		t->sem_next=NULL;
-	    t->state = READY;
+	    t->state = THREAD_READY;
 	}
 	else{
 		// otherwise allocate a resource;
 	    s->count++;
 	}
+	__enable_irq();
 }
 
 void osSemaphoreWait(sem_t *semaphore){
@@ -261,15 +312,13 @@ void osSemaphoreWait(sem_t *semaphore){
 		enable_irq();
 		return;
 	}
-	else{
-		// Otherwise thread is blocked and put on wait queue
-		currentPt->state=THREAD_BLOCKED;
-		currentPt->wait_next=semaphore;
-		semaphore->wait_head=currentPt;
-		enable_irq();
-		osThreadYield();
 
-	}
+	// Otherwise thread is blocked and put on wait queue
+	currentPt->state=THREAD_BLOCKED;
+	currentPt->wait_next=semaphore;
+	semaphore->wait_head=currentPt;
+	enable_irq();
+	osThreadYield();
 }
 
 

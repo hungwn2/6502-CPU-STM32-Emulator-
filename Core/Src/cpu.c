@@ -3,6 +3,9 @@
 #include <stdint.h>
 #include <string.h>
 
+extern uint32_t g_ram[256]; //Shared ram of main
+extern cpu_t g_cpu;
+
 static inline void set_zn_flag(cpu_t *cpu, uint8_t value){
 	if (value==0) cpu->p|=Z_FLAG;
 	else cpu->p &=~Z_FLAG;
@@ -87,7 +90,11 @@ void os_sycalls(cpu_t *cpu){
 	case UART_UNLOCK: osSemaphoreSet(&uart_lock); break;
 	case UART_LOCK: osSemaphoreWait(&uart_lock); break;
 	case UART_WRITE: uart_write(cpu->x); break;
-	case SYS_GPIO_TOGGLE: gpio_toggle_led(); break;
+	case SYS_GPIO_TOGGLE:{
+	    osSemaphoreWait(&gpio_lock); //Wait for gpio lock
+		gpio_toggle_led();
+		osSemaphoreSet(&gpio_lock); //Free GPIO resource
+	}
 	case SYS_YIELD: osThreadYield(); break;
 	default:
 	        break;

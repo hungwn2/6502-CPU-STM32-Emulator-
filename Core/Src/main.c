@@ -23,25 +23,22 @@
 
 
 typedef uint32_t TaskProfiler;
-#define QUANTA 1
+#define QUANTA 10
 
 
 
 uint32_t TIM2_Ticks;
 
-#define SLICE_INSTRUCTIONS  100
-
 
 void taskIdle(void){
 	while(1){
-		osThreadYield();
 	}
 }
 
-å
+
 void task6502_1(void) {
 	cpu_t *cpu = &tcbs[0].cpu;
-	for (i = 0; i < SLICE_INSTRUCTIONS; i++) {
+	while(1){
 	    cpu_step(cpu);
 	    if (tcbs[0].state == THREAD_BLOCKED) break;
 
@@ -50,7 +47,7 @@ void task6502_1(void) {
 
 void task6502_2(void) {
 	cput_t *cpu = &tcbs[1].cpu;
-	for (i = 0; i < SLICE_INSTRUCTIONS; i++) {
+	while(1){
 	    cpu_step(cpu);
 	    if (tcbs[0].state == THREAD_BLOCKED) break;
 
@@ -61,8 +58,8 @@ int main(void){
 	//initialize kernel, and add threads
 	uart_tx_init();
 	tim2_1hz_interrupt_init();
-	osSemaphoreInit(&semaphore1, 1);
-	osSemaphoreInit(&semaphore2, 0);
+	osSemaphoreInit(&gpio_lock, 1);
+	osSemaphoreInit(&uart_lock, 1);
 	osKernelInit();
 	osKernelAddThreads(&task6502, &task_stepper, &taskIdle);
 	osKernelLaunch(QUANTA);
