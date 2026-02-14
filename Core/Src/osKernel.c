@@ -8,9 +8,7 @@
 
 #include "osKernel.h"
 #include "cpu.h"
-#define NUM_OF_THREADS 3
-#define STACK_SIZE 400
-#define BUS_FREQ 16000000
+
 
 #define CTRL_ENABLE (1U<<0)
 #define CTRL_CLCKSRC (1U<<2)
@@ -49,34 +47,13 @@ static inline void save_cpu_from_tcb(cpu_t *cpu, tcbt_t *t){
 	*cpu=t->cpu;
 }
 
-struct tcb{
-	int32_t *stackPt;
-	cput_t* cpu;
-	void *task(void);
-	int32_t ram[256];
-	struct tcb *nextPt;
-	struct tcb *sem_next;
-	thread_state_t state;
-};
 
-typedef enum {
-  THREAD_READY = 0,
-  THREAD_BLOCKED = 1
-} thread_state_t;
-
-
-typedef struct{
-	int count;
-	tcb_t *wait_head;
-}sem_t;
-
-static sem_t gpio_lock, uart_lock;
 
 
 typedef struct tcb tcbType;
 tcbType tcbs[NUM_OF_THREADS];
 static tcbType *currentPt;
-static int32_t TCB_STACK[NUM_OF_THREADS][STACK_SIZE];
+extern int32_t TCB_STACK[NUM_OF_THREADS][STACK_SIZE];
 
 
 void osKernelStackInit(int i){
@@ -129,13 +106,14 @@ uint8_t osKernelAddThreads(void(*task0)(void), void(*task1)(void), void(*task2)(
 
 	//initialize stacks and Program counters
 	osKernelStackInit(0);
-	TCB_STACK[0][STACK_SIZE-2]=(uint32_t)(task6502_1);
+	TCB_STACK[0][STACK_SIZE-2]=(uint32_t)(task0);
 
 	osKernelStackInit(1);
-	TCB_STACK[1][STACK_SIZE-2]=(uint32_t)(task6502_2);
+	TCB_STACK[1][STACK_SIZE-2]=(uint32_t)(task1);
 
 	osKernelStackInit(2);
-	TCB_STACK[2][STACK_SIZE-2]=(uint32_t)(idle_task);
+	TCB_STACK[2][STACK_SIZE-2]=(uint32_t)(task2);
+	//1st and 2nd threads are 6502, last is idle
 	uint16_t lo=bus_read(0xFFFC);
 	uint16_t high=bus_read(0xFFFD);
 	uint16_t reset_pc=(high<<8)|lo;
@@ -149,36 +127,6 @@ uint8_t osKernelAddThreads(void(*task0)(void), void(*task1)(void), void(*task2)(
 }
 
 
-uint8_t osKernelAddThreads(void(*task0)(void), void(*task1)(void), void(*task2)(void))
-{
-  __disable_irq();
-
-  // circular list
-  tcbs[0].nextPt = &tcbs[1];
-  tcbs[1].nextPt = &tcbs[2];
-  tcbs[2].nextPt = &tcbs[0];
-
-  // store "run functions"
-  tcbs[0].taskFn = cpu_task1;  // cpu task 0 runner
-  tcbs[1].taskFn = cpu_task2;  // cpu task 1 runner
-  tcbs[2].taskFn = idle_task;  // idle runner
-
-
-  for (int i = 0; i < 3; i++) {
-    tcbs[i].state = THREAD_READY;
-    tcbs[i].wait_next = NULL;
-  }
-
-  // init 6502 contexts for the two cpu tasks
-  osKernelTaskInit6502(0, 0xF000);   // task0 entry in shared ROM
-  osKernelTaskInit6502(1, 0xF100);   // task1 entry in shared ROM
-;
-
-  currentPt = &tcbs[0];
-
-  __enable_irq();
-  return 1;
-}
 
 
 static inline void save_stack_page(tcb_t *t){

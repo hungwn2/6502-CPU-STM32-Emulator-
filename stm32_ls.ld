@@ -40,13 +40,9 @@ SECTIONS
 	}>SRAM
 }
 
-/* 
-
-.k6502_vectors :
+/*k6502_vectors :
 {
   . = ALIGN(4);
   KEEP(*(.k6502_vectors))
   . = ALIGN(4);
-} > FLASH
-
-*/
+} > FLASH*/

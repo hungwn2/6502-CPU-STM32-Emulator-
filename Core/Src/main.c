@@ -20,24 +20,26 @@
 #include <stdint.h>
 #include "osKernel.h"
 #include "rom.h"
+#include "cpu.h"
 
 
 typedef uint32_t TaskProfiler;
 #define QUANTA 10
-
+int32_t TCB_STACK[NUM_OF_THREADS][STACK_SIZE];
 
 
 uint32_t TIM2_Ticks;
+extern sem_t gpio_lock, uart_lock;
 
 
-void taskIdle(void){
+extern void taskIdle(void){
 	while(1){
 	}
 }
 
 
-void task6502_1(void) {
-	cpu_t *cpu = &tcbs[0].cpu;
+extern void task6502_1(void) {
+	cpu *cpu = &tcbs[0].cpu;
 	while(1){
 	    cpu_step(cpu);
 	    if (tcbs[0].state == THREAD_BLOCKED) break;
@@ -45,8 +47,8 @@ void task6502_1(void) {
 	}
 }
 
-void task6502_2(void) {
-	cput_t *cpu = &tcbs[1].cpu;
+extern void task6502_2(void) {
+	cpu *cpu = &tcbs[1].cpu;
 	while(1){
 	    cpu_step(cpu);
 	    if (tcbs[0].state == THREAD_BLOCKED) break;
@@ -57,21 +59,22 @@ void task6502_2(void) {
 int main(void){
 	//initialize kernel, and add threads
 	uart_tx_init();
+	led_init();
 	tim2_1hz_interrupt_init();
 	osSemaphoreInit(&gpio_lock, 1);
 	osSemaphoreInit(&uart_lock, 1);
 	osKernelInit();
-	osKernelAddThreads(&task6502, &task_stepper, &taskIdle);
+	osKernelAddThreads(&task6502_1, &task6502_2, &taskIdle);
 	osKernelLaunch(QUANTA);
 
 }
 
-void TIM2_IRQHandler(void){
-
-	if (TIM2->SR & SR_UIF) {
-	    TIM2->SR &= ~SR_UIF;
-	    step_count++; //Create one sem token
-	    osSemaphoreSet(&sem_step);   // allow exactly one 6502 instruction
-	  }
-}
+//void TIM2_IRQHandler(void){
+//
+//	if (TIM2->SR & SR_UIF) {
+//	    TIM2->SR &= ~SR_UIF;
+//	    step_count++; //Create one sem token
+//	    osSemaphoreSet(&sem_step);   // allow exactly one 6502 instruction
+//	  }
+//}
 

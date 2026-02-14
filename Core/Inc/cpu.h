@@ -4,7 +4,7 @@
 #include "gpio.h"
 #include "bus.h"
 
-
+typedef struct cpu cpu_t;
 typedef enum{
     C_FLAG = (1<<0),
     Z_FLAG = (1<<1),
@@ -16,6 +16,14 @@ typedef enum{
     N_FLAG = (1<<7)
 }cpu_flags_t;
 
+enum {
+  SYS_UART_LOCK   = 1,
+  SYS_UART_UNLOCK = 2,
+  SYS_UART_WRITE  = 3,
+  SYS_GPIO_TOGGLE = 4,
+  SYS_YIELD       = 5
+};
+
 typedef struct{
     uint8_t a;
     uint8_t x;
@@ -24,7 +32,7 @@ typedef struct{
     uint16_t pc;
     uint8_t p;
     uint64_t cycles;
-}cpu_t;
+}cpu;
 
 void cpu_reset(cpu_t *cpu);
 

@@ -24,7 +24,9 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/uart.h \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h \
- ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h
+ ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h \
+ ../Core/Inc/cpu.h ../Core/Inc/uart.h ../Core/Inc/gpio.h \
+ ../Core/Inc/bus.h ../Core/Inc/rom.h ../Core/Inc/cpu.h
 ../Core/Inc/uart.h:
 ../Core/Inc/osKernel.h:
 ../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h:
@@ -52,3 +54,9 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/uart.h \
 ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h:
 ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h:
 ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h:
+../Core/Inc/cpu.h:
+../Core/Inc/uart.h:
+../Core/Inc/gpio.h:
+../Core/Inc/bus.h:
+../Core/Inc/rom.h:
+../Core/Inc/cpu.h:

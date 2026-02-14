@@ -1,0 +1,3 @@
+../Core/Src/bus.c:9:6:bus_reset	1
+../Core/Src/bus.c:14:9:bus_read	3
+../Core/Src/bus.c:28:6:bus_write	2

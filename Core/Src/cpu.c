@@ -1,10 +1,12 @@
 #include "cpu.h"
 #include "bus.h"
+#include "oskernel.h"
 #include <stdint.h>
 #include <string.h>
 
 extern uint32_t g_ram[256]; //Shared ram of main
 extern cpu_t g_cpu;
+sem_t gpio_lock, uart_lock;
 
 static inline void set_zn_flag(cpu_t *cpu, uint8_t value){
 	if (value==0) cpu->p|=Z_FLAG;
@@ -35,7 +37,7 @@ void cpu_reset(cpu_t *cpu){
 	uint16_t lo=bus_read(0xFFFC);
 	uint16_t high=bus_read(0xFFFD);
 	cpu->sp=0xFD;
-	cpu->pc = (uint16_t)lo | ((uint16_t)hi << 8);
+	cpu->pc = (uint16_t)lo | ((uint16_t)high << 8);
 	cpu->p|=U_FLAG|I_FLAG;
 }
 

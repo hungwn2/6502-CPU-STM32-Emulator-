@@ -1,0 +1,2 @@
+../Core/Src/gpio.c:17:6:led_init	1
+../Core/Src/gpio.c:23:6:gpio_toggle_led	1
