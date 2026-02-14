@@ -1,10 +1,12 @@
+#ifndef CPU_H
+#define CPU_H
+
 #include <stdint.h>
 
 #include "uart.h"
 #include "gpio.h"
 #include "bus.h"
 
-typedef struct cpu cpu_t;
 typedef enum{
     C_FLAG = (1<<0),
     Z_FLAG = (1<<1),
@@ -32,7 +34,7 @@ typedef struct{
     uint16_t pc;
     uint8_t p;
     uint64_t cycles;
-}cpu;
+}cpu_t;
 
 void cpu_reset(cpu_t *cpu);
 
@@ -42,3 +44,5 @@ void cpu_step(cpu_t *cpu);
 void cpu_nmi(cpu_t *cpu);
 
 void cpu_irq(cpu_t *cpu);
+
+#endif

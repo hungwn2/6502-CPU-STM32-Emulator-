@@ -30,6 +30,7 @@ int32_t TCB_STACK[NUM_OF_THREADS][STACK_SIZE];
 
 uint32_t TIM2_Ticks;
 extern sem_t gpio_lock, uart_lock;
+tcb_t tcbs[NUM_OF_THREADS];
 
 
 extern void taskIdle(void){
@@ -39,7 +40,7 @@ extern void taskIdle(void){
 
 
 extern void task6502_1(void) {
-	cpu *cpu = &tcbs[0].cpu;
+	cpu_t *cpu = &tcbs[0].cpu;
 	while(1){
 	    cpu_step(cpu);
 	    if (tcbs[0].state == THREAD_BLOCKED) break;
@@ -48,7 +49,7 @@ extern void task6502_1(void) {
 }
 
 extern void task6502_2(void) {
-	cpu *cpu = &tcbs[1].cpu;
+	cpu_t *cpu = &tcbs[1].cpu;
 	while(1){
 	    cpu_step(cpu);
 	    if (tcbs[0].state == THREAD_BLOCKED) break;

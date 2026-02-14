@@ -1,5 +1,6 @@
 #include "cpu.h"
 #include "bus.h"
+#include "rom.h"
 #include "oskernel.h"
 #include <stdint.h>
 #include <string.h>
@@ -31,6 +32,28 @@ static inline void op_adc(cpu_t *cpu, uint8_t operand){
 	cpu->a=(uint8_t)sum;
 	set_zn_flag(cpu, cpu->a);
 }
+
+
+
+static inline void push_stack(cpu_t *cpu, uint8_t value){
+	bus_write(0x0100+cpu->sp, value);
+	cpu->sp--;
+}
+
+static inline uint8_t pull_stack(cpu_t *cpu){
+	cpu->sp++;
+	return bus_read(cpu->sp+0x0100);
+}
+
+
+static inline uint16_t read16(uint16_t addr) {
+    uint8_t lo = bus_read(addr);
+    uint8_t hi = bus_read((uint16_t)(addr + 1));
+    return (uint16_t)lo | ((uint16_t)hi << 8);
+}
+
+
+
 
 void cpu_reset(cpu_t *cpu){
 	memset(cpu, 0, sizeof(cpu_t));
@@ -68,30 +91,11 @@ uint16_t fetch_abs(cpu_t *cpu){
 
 }
 
-static inline void push_stack(cpu_t *cpu, uint8_t value){
-	bus_write(0x0100+cpu->sp, value);
-	cpu->sp--;
-}
-
-static inline uint8_t pull_stack(cpu_t *cpu){
-	cpu->sp++;
-	return bus_read(cpu->sp+0x0100);
-}
-
-
-static inline uint16_t read16(uint16_t addr) {
-    uint8_t lo = bus_read(addr);
-    uint8_t hi = bus_read((uint16_t)(addr + 1));
-    return (uint16_t)lo | ((uint16_t)hi << 8);
-}
-
-
-
 void os_sycalls(cpu_t *cpu){
 	switch(cpu->a){
-	case UART_UNLOCK: osSemaphoreSet(&uart_lock); break;
-	case UART_LOCK: osSemaphoreWait(&uart_lock); break;
-	case UART_WRITE: uart_write(cpu->x); break;
+	case SYS_UART_LOCK: osSemaphoreWait(&uart_lock); break;
+	case SYS_UART_UNLOCK: osSemaphoreSet(&uart_lock); break;
+	case SYS_UART_WRITE: uart_write(cpu->x); break;
 	case SYS_GPIO_TOGGLE:{
 	    osSemaphoreWait(&gpio_lock); //Wait for gpio lock
 		gpio_toggle_led();
@@ -215,7 +219,7 @@ void cpu_step(cpu_t *cpu)
 			cpu->p=pull_stack(cpu);
 			uint8_t lo=pull_stack(cpu);
 			uint8_t hi = pull_stack(cpu);
-			cpu->pc= ((high<<8)|lo);
+			cpu->pc= ((hi<<8)|lo);
 			cpu->cycles+=6;
 			break;
 	    default:

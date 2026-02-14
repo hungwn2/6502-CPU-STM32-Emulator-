@@ -49,7 +49,7 @@ void osSchedulerLaunch();
 
 void osThreadYield(void);
 void task3(void);
-void osSemaphoreInit(int32_t *semaphore, int32_t value);
-void osSemaphoreSet(int32_t *semaphore);
-void osSemaphoreWait(int32_t *semaphore);
+void osSemaphoreInit(sem_t *semaphore, int32_t value);
+void osSemaphoreSet(sem_t *semaphore);
+void osSemaphoreWait(sem_t *semaphore);
 #endif /* OSKERNEL_H_ */

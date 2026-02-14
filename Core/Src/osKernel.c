@@ -32,27 +32,26 @@ void task6502_2();
 
 uint32_t MILIS_PRESCALER;
 
-uint32_t g_ram[256];
-cput_t g_cpu;
+uint32_t cpu_ram[1024*24];
+cpu_t g_cpu;
 
 static inline void save_thread_stackpage(tcb_t *t) {
-  memcpy(t->stack_page, &g_ram[0x0100], 256);
+  memcpy(t->ram, &cpu_ram[0x0100], 256);
 }
 
 static inline void save_main_stackpage(tcb_t *t){
-	 memcpy(&g_ram[0x0100], t->stack_page, 256);
+	 memcpy(&cpu_ram[0x0100], t->ram, 256);
 }
 
-static inline void save_cpu_from_tcb(cpu_t *cpu, tcbt_t *t){
-	*cpu=t->cpu;
+static inline void save_cpu_from_tcb(cpu_t *cpu, tcb_t *t){
+	cpu=t->cpu;
 }
 
 
+extern sem_t uart_lock, gpio_lock;
 
-
-typedef struct tcb tcbType;
-tcbType tcbs[NUM_OF_THREADS];
-static tcbType *currentPt;
+extern tcb_t tcbs[NUM_OF_THREADS];
+static tcb_t *currentPt;
 extern int32_t TCB_STACK[NUM_OF_THREADS][STACK_SIZE];
 
 
@@ -84,17 +83,17 @@ void osKernelStackInit(int i){
 }
 
 void osKernelTaskInit6502(int32_t id, uint32_t entry_pc){
-	tcb_t *t = &tcbs[tid];
+	  tcb_t *t = &tcbs[id];
 
 	  memset(&t->cpu, 0, sizeof(t->cpu));
-	  memset(t->stack_page, 0, 256);
+	  memset(t->ram, 0, 256);
 
-	  t->cpu.pc = entry_pc;
-	  t->cpu.sp = 0xFD;
-	  t->cpu.p  = I_FLAG | U_FLAG;
+	  t->cpu->pc = entry_pc;
+	  t->cpu->sp = 0xFD;
+	  t->cpu->p  = I_FLAG | U_FLAG;
 
 	  t->state = THREAD_READY;
-	  t->wait_next = NULL;
+	  t->sem_next = NULL;
 }
 
 uint8_t osKernelAddThreads(void(*task0)(void), void(*task1)(void), void(*task2)(void)){
@@ -130,11 +129,11 @@ uint8_t osKernelAddThreads(void(*task0)(void), void(*task1)(void), void(*task2)(
 
 
 static inline void save_stack_page(tcb_t *t){
-  for (int i = 0; i < 256; i++) t->stack_page[i] = bus_read(0x0100 + i);
+  for (int i = 0; i < 256; i++) t->ram[i] = bus_read(0x0100 + i);
 }
 
 static inline void load_stack_page(tcb_t *t){
-  for (int i = 0; i < 256; i++) bus_write(0x0100 + i, t->stack_page[i]);
+  for (int i = 0; i < 256; i++) bus_write(0x0100 + i, t->ram[i]);
 }
 
 
@@ -194,11 +193,11 @@ void osSchedulerLaunch(void){
 }
 
 void os6502ContextSwitch(void){
-	currentPt->cpu=g_cpi;
-	save_thread_stackpage();
+	currentPt->cpu=cpu_ram;
+	save_thread_stackpage(currentPt);
 	osSchedulerRoundRobin();
 	restore_6502_stackpage(currentPt);
-	g_cpu = currentPt->cpu;
+	save_cpu_from_tcb(cpu_ram, currentPt);
 }
 
 
@@ -206,12 +205,12 @@ void osSchedulerRoundRobin(void){
 
 	tcb_t* start = currentPt;
 	do{
-		currentPt=curentPt->nextPt;
+		currentPt=currentPt->nextPt;
 		if (currentPt->state == THREAD_READY){
 			return;
 		}
 	}while(currentPt!=start);
-	currentPt=idleTcb;
+	currentPt=&tcbs[2];
 }
 
 void osThreadYield(){
@@ -230,9 +229,9 @@ void tim2_1hz_interrupt_init(void){
 	NVIC_EnableIRQ(TIM2_IRQn);
 }
 
-void osSemaphoreInit(int32_t *semaphore, int32_t value){
+void osSemaphoreInit(sem_t *semaphore, int32_t value){
 	semaphore->count=value;
-	semaphore->wait_head=nullptr;
+	semaphore->wait_head=NULL;
 }
 
 void osSemaphoreSet(sem_t *semaphore){
@@ -240,14 +239,14 @@ void osSemaphoreSet(sem_t *semaphore){
 	if (semaphore->wait_head){
 
 		// If semaphore has tasks in wait queue, dequeue one of theme and set the thread state to ready
-		tcbt_t* t = semaphore->wait_head;
+		tcb_t *t = semaphore->wait_head;
 		semaphore->wait_head = t->sem_next;
 		t->sem_next=NULL;
 	    t->state = THREAD_READY;
 	}
 	else{
 		// otherwise allocate a resource;
-	    s->count++;
+	    semaphore->count++;
 	}
 	__enable_irq();
 }
@@ -263,7 +262,7 @@ void osSemaphoreWait(sem_t *semaphore){
 
 	// Otherwise thread is blocked and put on wait queue
 	currentPt->state=THREAD_BLOCKED;
-	currentPt->wait_next=semaphore;
+	currentPt->sem_next=semaphore;
 	semaphore->wait_head=currentPt;
 	enable_irq();
 	osThreadYield();
