@@ -207,7 +207,7 @@ void cpu_step(cpu_t *cpu)
 
 		case 0x00: //BRK
 			uint16_t ret_addr = (uint16_t)(cpu->pc+1);
-		    os_syscall(cpu);
+			os_sycalls(cpu);
 
 
 			cpu->p |=I_FLAG;

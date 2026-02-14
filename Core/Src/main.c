@@ -62,8 +62,6 @@ int main(void){
 	uart_tx_init();
 	led_init();
 	tim2_1hz_interrupt_init();
-	osSemaphoreInit(&gpio_lock, 1);
-	osSemaphoreInit(&uart_lock, 1);
 	osKernelInit();
 	osKernelAddThreads(&task6502_1, &task6502_2, &taskIdle);
 	osKernelLaunch(QUANTA);

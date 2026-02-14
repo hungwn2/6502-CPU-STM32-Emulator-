@@ -32,7 +32,6 @@ void task6502_2();
 
 uint32_t MILIS_PRESCALER;
 
-uint32_t cpu_ram[1024*24];
 cpu_t g_cpu;
 
 static inline void save_thread_stackpage(tcb_t *t) {
@@ -45,6 +44,10 @@ static inline void save_main_stackpage(tcb_t *t){
 
 static inline void save_cpu_from_tcb(cpu_t *cpu, tcb_t *t){
 	cpu=t->cpu;
+}
+
+static inline void save_cpu_to_tcb(cpu_t *cpu, tcb_t *t){
+	t->cpu=cpu;
 }
 
 
@@ -118,8 +121,8 @@ uint8_t osKernelAddThreads(void(*task0)(void), void(*task1)(void), void(*task2)(
 	uint16_t reset_pc=(high<<8)|lo;
 	osKernelTaskInit6502(0, reset_pc);
 	osKernelTaskInit6502(1, reset_pc);
-	sem_init(&uart_lock);
-	sem_init(&gpio_lock);
+	osSemaphoreInit(&uart_lock, 1);
+	osSemaphoreInit(&gpio_lock, 1);
 	currentPt=&tcbs[0];
 	__enable_irq();
 	return 1;
@@ -128,13 +131,7 @@ uint8_t osKernelAddThreads(void(*task0)(void), void(*task1)(void), void(*task2)(
 
 
 
-static inline void save_stack_page(tcb_t *t){
-  for (int i = 0; i < 256; i++) t->ram[i] = bus_read(0x0100 + i);
-}
 
-static inline void load_stack_page(tcb_t *t){
-  for (int i = 0; i < 256; i++) bus_write(0x0100 + i, t->ram[i]);
-}
 
 
 void osKernelInit(void){
@@ -193,11 +190,11 @@ void osSchedulerLaunch(void){
 }
 
 void os6502ContextSwitch(void){
-	currentPt->cpu=cpu_ram;
+	save_cpu_to_tcb(&g_cpu, currentPt);
 	save_thread_stackpage(currentPt);
 	osSchedulerRoundRobin();
-	restore_6502_stackpage(currentPt);
-	save_cpu_from_tcb(cpu_ram, currentPt);
+	save_main_stackpage(currentPt);
+	save_cpu_from_tcb(&g_cpu, currentPt);
 }
 
 
@@ -256,15 +253,15 @@ void osSemaphoreWait(sem_t *semaphore){
 	if (semaphore->count>0){
 		// If available, execute task
 		semaphore->count--;
-		enable_irq();
+		__enable_irq();
 		return;
 	}
 
 	// Otherwise thread is blocked and put on wait queue
 	currentPt->state=THREAD_BLOCKED;
-	currentPt->sem_next=semaphore;
+	currentPt->sem_next=semaphore->wait_head;
 	semaphore->wait_head=currentPt;
-	enable_irq();
+	__enable_irq();
 	osThreadYield();
 }
 

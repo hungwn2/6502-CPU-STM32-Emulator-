@@ -4,7 +4,7 @@
 #include "uart.h"
 #include "gpio.h"
 
-static uint8_t cpu_ram[1024*24];
+uint8_t cpu_ram[1024*24];
 
 void bus_reset(void){
     memset(cpu_ram, 0, sizeof(cpu_ram));
@@ -31,7 +31,7 @@ void bus_write(uint16_t addr, uint8_t value){
     }
     //4KB of virtual rom
 
-    else if (addr=0x8000){
+    else if (addr==0x8000){
         gpio_toggle_led();
     }
     else if (addr==0xF001){

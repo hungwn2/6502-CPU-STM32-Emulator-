@@ -23,7 +23,7 @@
 
 uint16_t compute_uart_bd(uint32_t periph_clk, uint32_t baudrate);
 static void uart_set_baudrate(uint32_t periph_clk, uint32_t baudrate);
-static void uart_write(int ch);
+void uart_write(int ch);
 
 //Override printing characters
 int _io_putchar(int ch){
@@ -48,7 +48,7 @@ void uart_tx_init(void){
 	USART2->CR1|=CR1_UE;
 }
 
-static void uart_write(int ch){
+void uart_write(int ch){
 	while(!(USART2->SR & SR_TXE)){}
 	USART2->DR=(ch & 0xFF);
 }

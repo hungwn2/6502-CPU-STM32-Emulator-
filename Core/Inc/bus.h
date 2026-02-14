@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 
+extern uint8_t cpu_ram[0x6000];
 
 void bus_init(void);
 

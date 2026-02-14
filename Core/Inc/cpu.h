@@ -45,4 +45,6 @@ void cpu_nmi(cpu_t *cpu);
 
 void cpu_irq(cpu_t *cpu);
 
+void os_sycalls(cpu_t *cpu);
+
 #endif
